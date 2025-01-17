@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package checks
 
@@ -30,6 +30,10 @@ func collectInitialStatuses(into addrs.Map[addrs.ConfigCheckable, *configCheckab
 		collectInitialStatusForResource(into, addr, rc)
 	}
 	for _, rc := range cfg.Module.DataResources {
+		addr := rc.Addr().InModule(moduleAddr)
+		collectInitialStatusForResource(into, addr, rc)
+	}
+	for _, rc := range cfg.Module.EphemeralResources {
 		addr := rc.Addr().InModule(moduleAddr)
 		collectInitialStatusForResource(into, addr, rc)
 	}

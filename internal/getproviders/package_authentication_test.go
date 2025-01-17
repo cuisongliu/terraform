@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package getproviders
 
@@ -11,23 +11,13 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
-	"github.com/ProtonMail/go-crypto/openpgp/packet"
 )
 
 func TestMain(m *testing.M) {
-	openpgpConfig = &packet.Config{
-		Time: func() time.Time {
-			// Scientifically chosen time that satisfies the validity periods of all
-			// of the keys and signatures used.
-			t, _ := time.Parse(time.RFC3339, "2021-04-25T16:00:00-07:00")
-			return t
-		},
-	}
 	os.Exit(m.Run())
 }
 

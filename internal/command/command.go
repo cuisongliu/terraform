@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package command
 
@@ -29,6 +29,10 @@ const DefaultPluginVendorDir = "terraform.d/plugins/" + pluginMachineName
 
 // DefaultStateFilename is the default filename used for the state file.
 const DefaultStateFilename = "terraform.tfstate"
+
+// DefaultStatePersistInterval is the default interval a backend should persist
+// Terraform state, if applicable. Backends can set their own custom defaults.
+const DefaultStatePersistInterval = 20
 
 // DefaultVarsFilename is the default filename used for vars
 const DefaultVarsFilename = "terraform.tfvars"

@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package addrs
 
@@ -67,6 +67,51 @@ func TestParseRefInTestingScope(t *testing.T) {
 			nil,
 			`The "check" object does not support this operation.`,
 		},
+		{
+			`run.zero`,
+			&Reference{
+				Subject: Run{
+					Name: "zero",
+				},
+				SourceRange: tfdiags.SourceRange{
+					Start: tfdiags.SourcePos{Line: 1, Column: 1, Byte: 0},
+					End:   tfdiags.SourcePos{Line: 1, Column: 9, Byte: 8},
+				},
+			},
+			``,
+		},
+		{
+			`run.zero.value`,
+			&Reference{
+				Subject: Run{
+					Name: "zero",
+				},
+				SourceRange: tfdiags.SourceRange{
+					Start: tfdiags.SourcePos{Line: 1, Column: 1, Byte: 0},
+					End:   tfdiags.SourcePos{Line: 1, Column: 9, Byte: 8},
+				},
+				Remaining: hcl.Traversal{
+					hcl.TraverseAttr{
+						Name: "value",
+						SrcRange: hcl.Range{
+							Start: hcl.Pos{Line: 1, Column: 9, Byte: 8},
+							End:   hcl.Pos{Line: 1, Column: 15, Byte: 14},
+						},
+					},
+				},
+			},
+			``,
+		},
+		{
+			`run`,
+			nil,
+			`The "run" object cannot be accessed directly. Instead, access one of its attributes.`,
+		},
+		{
+			`run["foo"]`,
+			nil,
+			`The "run" object does not support this operation.`,
+		},
 
 		// Sanity check at least one of the others works to verify it does
 		// fall through to the core function.
@@ -114,7 +159,7 @@ func TestParseRefInTestingScope(t *testing.T) {
 			}
 
 			for _, problem := range deep.Equal(got, test.Want) {
-				t.Errorf(problem)
+				t.Error(problem)
 			}
 		})
 	}
@@ -316,6 +361,104 @@ func TestParseRef(t *testing.T) {
 			`data.external`,
 			nil,
 			`The "data" object must be followed by two attribute names: the data source type and the resource name.`,
+		},
+
+		// ephemeral
+		{
+			`ephemeral.external.foo`,
+			&Reference{
+				Subject: Resource{
+					Mode: EphemeralResourceMode,
+					Type: "external",
+					Name: "foo",
+				},
+				SourceRange: tfdiags.SourceRange{
+					Start: tfdiags.SourcePos{Line: 1, Column: 1, Byte: 0},
+					End:   tfdiags.SourcePos{Line: 1, Column: 23, Byte: 22},
+				},
+			},
+			``,
+		},
+		{
+			`ephemeral.external.foo.bar`,
+			&Reference{
+				Subject: ResourceInstance{
+					Resource: Resource{
+						Mode: EphemeralResourceMode,
+						Type: "external",
+						Name: "foo",
+					},
+				},
+				SourceRange: tfdiags.SourceRange{
+					Start: tfdiags.SourcePos{Line: 1, Column: 1, Byte: 0},
+					End:   tfdiags.SourcePos{Line: 1, Column: 23, Byte: 22},
+				},
+				Remaining: hcl.Traversal{
+					hcl.TraverseAttr{
+						Name: "bar",
+						SrcRange: hcl.Range{
+							Start: hcl.Pos{Line: 1, Column: 23, Byte: 22},
+							End:   hcl.Pos{Line: 1, Column: 27, Byte: 26},
+						},
+					},
+				},
+			},
+			``,
+		},
+		{
+			`ephemeral.external.foo["baz"].bar`,
+			&Reference{
+				Subject: ResourceInstance{
+					Resource: Resource{
+						Mode: EphemeralResourceMode,
+						Type: "external",
+						Name: "foo",
+					},
+					Key: StringKey("baz"),
+				},
+				SourceRange: tfdiags.SourceRange{
+					Start: tfdiags.SourcePos{Line: 1, Column: 1, Byte: 0},
+					End:   tfdiags.SourcePos{Line: 1, Column: 30, Byte: 29},
+				},
+				Remaining: hcl.Traversal{
+					hcl.TraverseAttr{
+						Name: "bar",
+						SrcRange: hcl.Range{
+							Start: hcl.Pos{Line: 1, Column: 30, Byte: 29},
+							End:   hcl.Pos{Line: 1, Column: 34, Byte: 33},
+						},
+					},
+				},
+			},
+			``,
+		},
+		{
+			`ephemeral.external.foo["baz"]`,
+			&Reference{
+				Subject: ResourceInstance{
+					Resource: Resource{
+						Mode: EphemeralResourceMode,
+						Type: "external",
+						Name: "foo",
+					},
+					Key: StringKey("baz"),
+				},
+				SourceRange: tfdiags.SourceRange{
+					Start: tfdiags.SourcePos{Line: 1, Column: 1, Byte: 0},
+					End:   tfdiags.SourcePos{Line: 1, Column: 30, Byte: 29},
+				},
+			},
+			``,
+		},
+		{
+			`ephemeral`,
+			nil,
+			`The "ephemeral" object must be followed by two attribute names: the ephemeral resource type and the resource name.`,
+		},
+		{
+			`ephemeral.external`,
+			nil,
+			`The "ephemeral" object must be followed by two attribute names: the ephemeral resource type and the resource name.`,
 		},
 
 		// local
@@ -827,7 +970,7 @@ func TestParseRef(t *testing.T) {
 			`A reference to a resource type must be followed by at least one attribute access, specifying the resource name.`,
 		},
 
-		// Should interpret checks and outputs as resource types.
+		// Should interpret checks, outputs, and runs as resource types.
 		{
 			`output.value`,
 			&Reference{
@@ -854,6 +997,21 @@ func TestParseRef(t *testing.T) {
 				SourceRange: tfdiags.SourceRange{
 					Start: tfdiags.SourcePos{Line: 1, Column: 1, Byte: 0},
 					End:   tfdiags.SourcePos{Line: 1, Column: 13, Byte: 12},
+				},
+			},
+			``,
+		},
+		{
+			`run.zero`,
+			&Reference{
+				Subject: Resource{
+					Mode: ManagedResourceMode,
+					Type: "run",
+					Name: "zero",
+				},
+				SourceRange: tfdiags.SourceRange{
+					Start: tfdiags.SourcePos{Line: 1, Column: 1, Byte: 0},
+					End:   tfdiags.SourcePos{Line: 1, Column: 9, Byte: 8},
 				},
 			},
 			``,
@@ -890,7 +1048,7 @@ func TestParseRef(t *testing.T) {
 			}
 
 			for _, problem := range deep.Equal(got, test.Want) {
-				t.Errorf(problem)
+				t.Error(problem)
 			}
 		})
 	}

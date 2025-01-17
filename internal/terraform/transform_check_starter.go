@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: BUSL-1.1
+
 package terraform
 
 import (
@@ -73,7 +76,7 @@ func (s *checkStartTransformer) Transform(graph *Graph) error {
 
 			config := s.Config
 			if !addr.Module.IsRoot() {
-				config = s.Config.Descendent(addr.Module.Module())
+				config = s.Config.Descendant(addr.Module.Module())
 			}
 			if config == nil {
 				// might have been deleted, so it won't be subject to any checks

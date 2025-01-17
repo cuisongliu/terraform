@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package arguments
 
@@ -59,6 +59,14 @@ func ParsePlan(args []string) (*Plan, tfdiags.Diagnostics) {
 			tfdiags.Error,
 			"Failed to parse command-line flags",
 			err.Error(),
+		))
+	}
+
+	if plan.State.StatePath != "" {
+		diags = diags.Append(tfdiags.Sourceless(
+			tfdiags.Warning,
+			"Deprecated flag: -state",
+			"Use `path` attribute within the `local` backend instead: https://developer.hashicorp.com/terraform/language/v1.10.x/settings/backends/local#path",
 		))
 	}
 

@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package configload
 
@@ -8,12 +8,13 @@ import (
 
 	version "github.com/hashicorp/go-version"
 	"github.com/hashicorp/hcl/v2"
+
 	"github.com/hashicorp/terraform/internal/configs"
 )
 
 // LoadConfig reads the Terraform module in the given directory and uses it as the
 // root module to build the static module tree that represents a configuration,
-// assuming that all required descendent modules have already been installed.
+// assuming that all required descendant modules have already been installed.
 //
 // If error diagnostics are returned, the returned configuration may be either
 // nil or incomplete. In the latter case, cautious static analysis is possible
@@ -26,7 +27,7 @@ func (l *Loader) LoadConfig(rootDir string) (*configs.Config, hcl.Diagnostics) {
 }
 
 // LoadConfigWithTests matches LoadConfig, except the configs.Config contains
-// any relevant .tftest files.
+// any relevant .tftest.hcl files.
 func (l *Loader) LoadConfigWithTests(rootDir string, testDir string) (*configs.Config, hcl.Diagnostics) {
 	return l.loadConfig(l.parser.LoadConfigDirWithTests(rootDir, testDir))
 }
@@ -42,10 +43,22 @@ func (l *Loader) loadConfig(rootMod *configs.Module, diags hcl.Diagnostics) (*co
 		return cfg, diags
 	}
 
-	cfg, cDiags := configs.BuildConfig(rootMod, configs.ModuleWalkerFunc(l.moduleWalkerLoad))
+	cfg, cDiags := configs.BuildConfig(rootMod, configs.ModuleWalkerFunc(l.moduleWalkerLoad), configs.MockDataLoaderFunc(l.LoadExternalMockData))
 	diags = append(diags, cDiags...)
 
 	return cfg, diags
+}
+
+// LoadExternalMockData reads the external mock data files for the given
+// provider, if they are present.
+func (l *Loader) LoadExternalMockData(provider *configs.Provider) (*configs.MockData, hcl.Diagnostics) {
+	if len(provider.MockDataExternalSource) == 0 {
+		// We have no external mock data, so don't do anything.
+		return nil, nil
+	}
+
+	// Otherwise, just hand this off to the parser to handle.
+	return l.parser.LoadMockDataDir(provider.MockDataExternalSource, provider.MockDataDuringPlan, provider.DeclRange)
 }
 
 // moduleWalkerLoad is a configs.ModuleWalkerFunc for loading modules that

@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package json
 
@@ -29,10 +29,21 @@ const (
 	MessageRefreshStart      MessageType = "refresh_start"
 	MessageRefreshComplete   MessageType = "refresh_complete"
 
+	// Ephemeral operation messages
+	MessageEphemeralOpStart    MessageType = "ephemeral_op_start"
+	MessageEphemeralOpProgress MessageType = "ephemeral_op_progress"
+	MessageEphemeralOpComplete MessageType = "ephemeral_op_complete"
+	MessageEphemeralOpErrored  MessageType = "ephemeral_op_errored"
+
 	// Test messages
-	MessageTestAbstract MessageType = "test_abstract"
-	MessageTestFile     MessageType = "test_file"
-	MessageTestRun      MessageType = "test_run"
-	MessageTestSummary  MessageType = "test_summary"
-	MessageTestCleanup  MessageType = "test_cleanup"
+	MessageTestAbstract  MessageType = "test_abstract"
+	MessageTestFile      MessageType = "test_file"
+	MessageTestRun       MessageType = "test_run"
+	MessageTestPlan      MessageType = "test_plan"
+	MessageTestState     MessageType = "test_state"
+	MessageTestSummary   MessageType = "test_summary"
+	MessageTestCleanup   MessageType = "test_cleanup"
+	MessageTestInterrupt MessageType = "test_interrupt"
+	MessageTestStatus    MessageType = "test_status"
+	MessageTestRetry     MessageType = "test_retry"
 )

@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: BUSL-1.1
+
 package json
 
 import (
@@ -10,15 +13,20 @@ type TestSuiteAbstract map[string][]string
 
 type TestStatus string
 
+type TestProgress string
+
 type TestFileStatus struct {
-	Path   string     `json:"path"`
-	Status TestStatus `json:"status"`
+	Path     string       `json:"path"`
+	Progress TestProgress `json:"progress"`
+	Status   TestStatus   `json:"status,omitempty"`
 }
 
 type TestRunStatus struct {
-	Path   string     `json:"path"`
-	Run    string     `json:"run"`
-	Status TestStatus `json:"status"`
+	Path     string       `json:"path"`
+	Run      string       `json:"run"`
+	Progress TestProgress `json:"progress"`
+	Elapsed  *int64       `json:"elapsed,omitempty"`
+	Status   TestStatus   `json:"status,omitempty"`
 }
 
 type TestSuiteSummary struct {
@@ -38,6 +46,21 @@ type TestFailedResource struct {
 	DeposedKey string `json:"deposed_key,omitempty"`
 }
 
+type TestFatalInterrupt struct {
+	State   []TestFailedResource            `json:"state,omitempty"`
+	States  map[string][]TestFailedResource `json:"states,omitempty"`
+	Planned []string                        `json:"planned,omitempty"`
+}
+
+type TestStatusUpdate struct {
+	Status   string  `json:"status"`
+	Duration float64 `json:"duration"`
+}
+
 func ToTestStatus(status moduletest.Status) TestStatus {
 	return TestStatus(strings.ToLower(status.String()))
+}
+
+func ToTestProgress(progress moduletest.Progress) TestProgress {
+	return TestProgress(strings.ToLower(progress.String()))
 }

@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package jsonconfig
 
@@ -15,8 +15,8 @@ import (
 
 	"github.com/hashicorp/terraform/internal/addrs"
 	"github.com/hashicorp/terraform/internal/configs/configschema"
-	"github.com/hashicorp/terraform/internal/lang"
 	"github.com/hashicorp/terraform/internal/lang/blocktoattr"
+	"github.com/hashicorp/terraform/internal/lang/langrefs"
 )
 
 // expression represents any unparsed expression
@@ -48,7 +48,7 @@ func marshalExpression(ex hcl.Expression) expression {
 		ret.ConstantValue = valJSON
 	}
 
-	refs, _ := lang.ReferencesInExpr(addrs.ParseRef, ex)
+	refs, _ := langrefs.ReferencesInExpr(addrs.ParseRef, ex)
 	if len(refs) > 0 {
 		var varString []string
 		for _, ref := range refs {

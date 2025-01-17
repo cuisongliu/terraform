@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package addrs
 
@@ -126,7 +126,7 @@ type absOutputValueUniqueKey string
 func (k absOutputValueUniqueKey) uniqueKeySigil() {}
 
 func ParseAbsOutputValue(traversal hcl.Traversal) (AbsOutputValue, tfdiags.Diagnostics) {
-	path, remain, diags := parseModuleInstancePrefix(traversal)
+	path, remain, diags := parseModuleInstancePrefix(traversal, false)
 	if diags.HasErrors() {
 		return AbsOutputValue{}, diags
 	}

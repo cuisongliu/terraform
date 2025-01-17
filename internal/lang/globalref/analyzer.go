@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package globalref
 
@@ -63,7 +63,7 @@ func NewAnalyzer(cfg *configs.Config, providerSchemas map[addrs.Provider]provide
 // ModuleConfig retrieves a module configuration from the configuration the
 // analyzer belongs to, or nil if there is no module with the given address.
 func (a *Analyzer) ModuleConfig(addr addrs.ModuleInstance) *configs.Module {
-	modCfg := a.cfg.DescendentForInstance(addr)
+	modCfg := a.cfg.DescendantForInstance(addr)
 	if modCfg == nil {
 		return nil
 	}

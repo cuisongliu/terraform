@@ -1,15 +1,20 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package configs
 
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
+)
+
+const (
+	DefaultTestDirectory = "tests"
 )
 
 // LoadConfigDir reads the .tf and .tf.json files in the given directory
@@ -51,7 +56,7 @@ func (p *Parser) LoadConfigDir(path string) (*Module, hcl.Diagnostics) {
 }
 
 // LoadConfigDirWithTests matches LoadConfigDir, but the return Module also
-// contains any relevant .tftest files.
+// contains any relevant .tftest.hcl files.
 func (p *Parser) LoadConfigDirWithTests(path string, testDirectory string) (*Module, hcl.Diagnostics) {
 	primaryPaths, overridePaths, testPaths, diags := p.dirFiles(path, testDirectory)
 	if diags.HasErrors() {
@@ -71,6 +76,52 @@ func (p *Parser) LoadConfigDirWithTests(path string, testDirectory string) (*Mod
 	mod.SourceDir = path
 
 	return mod, diags
+}
+
+func (p *Parser) LoadMockDataDir(dir string, useForPlanDefault bool, source hcl.Range) (*MockData, hcl.Diagnostics) {
+	var diags hcl.Diagnostics
+
+	infos, err := p.fs.ReadDir(dir)
+	if err != nil {
+		diags = append(diags, &hcl.Diagnostic{
+			Severity: hcl.DiagError,
+			Summary:  "Failed to read mock data directory",
+			Detail:   fmt.Sprintf("Mock data directory %s does not exist or cannot be read.", dir),
+			Subject:  source.Ptr(),
+		})
+		return nil, diags
+	}
+
+	var files []string
+	for _, info := range infos {
+		if info.IsDir() {
+			// We only care about terraform configuration files.
+			continue
+		}
+
+		name := info.Name()
+		if !(strings.HasSuffix(name, ".tfmock.hcl") || strings.HasSuffix(name, ".tfmock.json")) {
+			continue
+		}
+
+		if IsIgnoredFile(name) {
+			continue
+		}
+
+		files = append(files, filepath.Join(dir, name))
+	}
+
+	var data *MockData
+	for _, file := range files {
+		current, currentDiags := p.LoadMockDataFile(file, useForPlanDefault)
+		diags = append(diags, currentDiags...)
+		if data != nil {
+			diags = append(diags, data.Merge(current, false)...)
+			continue
+		}
+		data = current
+	}
+	return data, diags
 }
 
 // ConfigDirFiles returns lists of the primary and override files configuration
@@ -129,6 +180,56 @@ func (p *Parser) loadFiles(paths []string, override bool) ([]*File, hcl.Diagnost
 func (p *Parser) dirFiles(dir string, testsDir string) (primary, override, tests []string, diags hcl.Diagnostics) {
 	includeTests := len(testsDir) > 0
 
+	if includeTests {
+		testPath := path.Join(dir, testsDir)
+
+		infos, err := p.fs.ReadDir(testPath)
+		if err != nil {
+			// Then we couldn't read from the testing directory for some reason.
+
+			if os.IsNotExist(err) {
+				// Then this means the testing directory did not exist.
+				// We won't actually stop loading the rest of the configuration
+				// for this, we will add a warning to explain to the user why
+				// test files weren't processed but leave it at that.
+				if testsDir != DefaultTestDirectory {
+					// We'll only add the warning if a directory other than the
+					// default has been requested. If the user is just loading
+					// the default directory then we have no expectation that
+					// it should actually exist.
+					diags = append(diags, &hcl.Diagnostic{
+						Severity: hcl.DiagWarning,
+						Summary:  "Test directory does not exist",
+						Detail:   fmt.Sprintf("Requested test directory %s does not exist.", testPath),
+					})
+				}
+			} else {
+				// Then there is some other reason we couldn't load. We will
+				// treat this as a full error.
+				diags = append(diags, &hcl.Diagnostic{
+					Severity: hcl.DiagError,
+					Summary:  "Failed to read test directory",
+					Detail:   fmt.Sprintf("Test directory %s could not be read: %v.", testPath, err),
+				})
+
+				// We'll also stop loading the rest of the config for this.
+				return
+			}
+
+		} else {
+			for _, testInfo := range infos {
+				if testInfo.IsDir() || IsIgnoredFile(testInfo.Name()) {
+					continue
+				}
+
+				if strings.HasSuffix(testInfo.Name(), ".tftest.hcl") || strings.HasSuffix(testInfo.Name(), ".tftest.json") {
+					tests = append(tests, filepath.Join(testPath, testInfo.Name()))
+				}
+			}
+		}
+
+	}
+
 	infos, err := p.fs.ReadDir(dir)
 	if err != nil {
 		diags = append(diags, &hcl.Diagnostic{
@@ -141,31 +242,7 @@ func (p *Parser) dirFiles(dir string, testsDir string) (primary, override, tests
 
 	for _, info := range infos {
 		if info.IsDir() {
-			if includeTests && info.Name() == testsDir {
-				testsDir := filepath.Join(dir, info.Name())
-				testInfos, err := p.fs.ReadDir(testsDir)
-				if err != nil {
-					diags = append(diags, &hcl.Diagnostic{
-						Severity: hcl.DiagError,
-						Summary:  "Failed to read module test directory",
-						Detail:   fmt.Sprintf("Module test directory %s does not exist or cannot be read.", testsDir),
-					})
-					return
-				}
-
-				for _, testInfo := range testInfos {
-					if testInfo.IsDir() || IsIgnoredFile(testInfo.Name()) {
-						continue
-					}
-
-					if strings.HasSuffix(testInfo.Name(), ".tftest") || strings.HasSuffix(testInfo.Name(), ".tftest.json") {
-						tests = append(tests, filepath.Join(testsDir, testInfo.Name()))
-					}
-				}
-			}
-
-			// We only care about the tests directory or terraform configuration
-			// files.
+			// We only care about terraform configuration files.
 			continue
 		}
 
@@ -175,7 +252,7 @@ func (p *Parser) dirFiles(dir string, testsDir string) (primary, override, tests
 			continue
 		}
 
-		if ext == ".tftest" || ext == ".tftest.json" {
+		if ext == ".tftest.hcl" || ext == ".tftest.json" {
 			if includeTests {
 				tests = append(tests, filepath.Join(dir, name))
 			}
@@ -229,8 +306,8 @@ func fileExt(path string) string {
 		return ".tf"
 	} else if strings.HasSuffix(path, ".tf.json") {
 		return ".tf.json"
-	} else if strings.HasSuffix(path, ".tftest") {
-		return ".tftest"
+	} else if strings.HasSuffix(path, ".tftest.hcl") {
+		return ".tftest.hcl"
 	} else if strings.HasSuffix(path, ".tftest.json") {
 		return ".tftest.json"
 	} else {

@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package jsonplan
 
@@ -8,12 +8,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/zclconf/go-cty/cty"
+
 	"github.com/hashicorp/terraform/internal/addrs"
 	"github.com/hashicorp/terraform/internal/configs/configschema"
 	"github.com/hashicorp/terraform/internal/plans"
 	"github.com/hashicorp/terraform/internal/providers"
 	"github.com/hashicorp/terraform/internal/terraform"
-	"github.com/zclconf/go-cty/cty"
 )
 
 func TestMarshalAttributeValues(t *testing.T) {
@@ -116,17 +117,17 @@ func TestMarshalPlannedOutputs(t *testing.T) {
 	after, _ := plans.NewDynamicValue(cty.StringVal("after"), cty.DynamicPseudoType)
 
 	tests := []struct {
-		Changes *plans.Changes
+		Changes *plans.ChangesSrc
 		Want    map[string]output
 		Err     bool
 	}{
 		{
-			&plans.Changes{},
+			&plans.ChangesSrc{},
 			nil,
 			false,
 		},
 		{
-			&plans.Changes{
+			&plans.ChangesSrc{
 				Outputs: []*plans.OutputChangeSrc{
 					{
 						Addr: addrs.OutputValue{Name: "bar"}.Absolute(addrs.RootModuleInstance),
@@ -148,7 +149,7 @@ func TestMarshalPlannedOutputs(t *testing.T) {
 			false,
 		},
 		{ // Delete action
-			&plans.Changes{
+			&plans.ChangesSrc{
 				Outputs: []*plans.OutputChangeSrc{
 					{
 						Addr: addrs.OutputValue{Name: "bar"}.Absolute(addrs.RootModuleInstance),
@@ -269,7 +270,7 @@ func TestMarshalPlanResources(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			testChange := &plans.Changes{
+			testChange := &plans.ChangesSrc{
 				Resources: []*plans.ResourceInstanceChangeSrc{
 					{
 						Addr: addrs.Resource{
@@ -315,7 +316,7 @@ func TestMarshalPlanValuesNoopDeposed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	testChange := &plans.Changes{
+	testChange := &plans.ChangesSrc{
 		Resources: []*plans.ResourceInstanceChangeSrc{
 			{
 				Addr: addrs.Resource{

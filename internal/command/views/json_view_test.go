@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package views
 
@@ -377,7 +377,7 @@ func TestJSONView_Outputs(t *testing.T) {
 // against a slice of structs representing the desired log messages. It
 // verifies that the output of JSONView is in JSON log format, one message per
 // line.
-func testJSONViewOutputEqualsFull(t *testing.T, output string, want []map[string]interface{}) {
+func testJSONViewOutputEqualsFull(t *testing.T, output string, want []map[string]interface{}, options ...cmp.Option) {
 	t.Helper()
 
 	// Remove final trailing newline
@@ -410,12 +410,12 @@ func testJSONViewOutputEqualsFull(t *testing.T, output string, want []map[string
 			delete(gotStruct, "@timestamp")
 
 			// Verify the timestamp format
-			if _, err := time.Parse("2006-01-02T15:04:05.000000Z07:00", timestamp.(string)); err != nil {
+			if _, err := time.Parse(time.RFC3339, timestamp.(string)); err != nil {
 				t.Errorf("error parsing timestamp on line %d: %s", i, err)
 			}
 		}
 
-		if !cmp.Equal(wantStruct, gotStruct) {
+		if !cmp.Equal(wantStruct, gotStruct, options...) {
 			t.Errorf("unexpected output on line %d:\n%s", i, cmp.Diff(wantStruct, gotStruct))
 		}
 	}
@@ -423,7 +423,7 @@ func testJSONViewOutputEqualsFull(t *testing.T, output string, want []map[string
 
 // testJSONViewOutputEquals skips the first line of output, since it ought to
 // be a version message that we don't care about for most of our tests.
-func testJSONViewOutputEquals(t *testing.T, output string, want []map[string]interface{}) {
+func testJSONViewOutputEquals(t *testing.T, output string, want []map[string]interface{}, options ...cmp.Option) {
 	t.Helper()
 
 	// Remove up to the first newline
@@ -431,5 +431,5 @@ func testJSONViewOutputEquals(t *testing.T, output string, want []map[string]int
 	if index >= 0 {
 		output = output[index+1:]
 	}
-	testJSONViewOutputEqualsFull(t, output, want)
+	testJSONViewOutputEqualsFull(t, output, want, options...)
 }

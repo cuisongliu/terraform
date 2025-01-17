@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package azure
 
@@ -7,15 +7,16 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/go-uuid"
+	"github.com/tombuildsstuff/giovanni/storage/2018-11-09/blob/blobs"
+
 	"github.com/hashicorp/terraform/internal/states/remote"
 	"github.com/hashicorp/terraform/internal/states/statemgr"
-	"github.com/tombuildsstuff/giovanni/storage/2018-11-09/blob/blobs"
 )
 
 const (
@@ -135,7 +136,7 @@ func (c *RemoteClient) Lock(info *statemgr.LockInfo) (string, error) {
 	getLockInfoErr := func(err error) error {
 		lockInfo, infoErr := c.getLockInfo()
 		if infoErr != nil {
-			err = multierror.Append(err, infoErr)
+			err = errors.Join(err, infoErr)
 		}
 
 		return &statemgr.LockError{

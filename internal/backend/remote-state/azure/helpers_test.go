@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package azure
 
@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
 	"testing"
@@ -228,4 +229,14 @@ func (c ArmClient) destroyTestResources(ctx context.Context, resources resourceN
 	}
 
 	return nil
+}
+
+// randString generates a random alphanumeric string of the length specified
+func randString(strlen int) string {
+	const charSet = "abcdefghijklmnopqrstuvwxyz012346789"
+	result := make([]byte, strlen)
+	for i := 0; i < strlen; i++ {
+		result[i] = charSet[rand.Intn(len(charSet))]
+	}
+	return string(result)
 }

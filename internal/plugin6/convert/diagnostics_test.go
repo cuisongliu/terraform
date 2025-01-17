@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package convert
 
@@ -19,6 +19,7 @@ var ignoreUnexported = cmpopts.IgnoreUnexported(
 	proto.Schema_Block{},
 	proto.Schema_NestedBlock{},
 	proto.Schema_Attribute{},
+	proto.Schema_Object{},
 )
 
 func TestProtoDiagnostics(t *testing.T) {

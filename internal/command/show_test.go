@@ -1,5 +1,5 @@
 // Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: BUSL-1.1
 
 package command
 
@@ -12,16 +12,17 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/hashicorp/cli"
+	"github.com/zclconf/go-cty/cty"
+
 	"github.com/hashicorp/terraform/internal/addrs"
 	"github.com/hashicorp/terraform/internal/configs/configschema"
 	"github.com/hashicorp/terraform/internal/plans"
 	"github.com/hashicorp/terraform/internal/providers"
+	testing_provider "github.com/hashicorp/terraform/internal/providers/testing"
 	"github.com/hashicorp/terraform/internal/states"
 	"github.com/hashicorp/terraform/internal/states/statemgr"
-	"github.com/hashicorp/terraform/internal/terraform"
 	"github.com/hashicorp/terraform/version"
-	"github.com/mitchellh/cli"
-	"github.com/zclconf/go-cty/cty"
 )
 
 func TestShow_badArgs(t *testing.T) {
@@ -201,9 +202,13 @@ func TestShow_argsPlanFileDoesNotExist(t *testing.T) {
 	}
 
 	got := output.Stderr()
-	want := `Plan read error: open doesNotExist.tfplan:`
-	if !strings.Contains(got, want) {
-		t.Errorf("unexpected output\ngot: %s\nwant:\n%s", got, want)
+	want1 := `Plan read error: couldn't load the provided path`
+	want2 := `open doesNotExist.tfplan: no such file or directory`
+	if !strings.Contains(got, want1) {
+		t.Errorf("unexpected output\ngot: %s\nwant:\n%s", got, want1)
+	}
+	if !strings.Contains(got, want2) {
+		t.Errorf("unexpected output\ngot: %s\nwant:\n%s", got, want2)
 	}
 }
 
@@ -256,9 +261,13 @@ func TestShow_json_argsPlanFileDoesNotExist(t *testing.T) {
 	}
 
 	got := output.Stderr()
-	want := `Plan read error: open doesNotExist.tfplan:`
-	if !strings.Contains(got, want) {
-		t.Errorf("unexpected output\ngot: %s\nwant:\n%s", got, want)
+	want1 := `Plan read error: couldn't load the provided path`
+	want2 := `open doesNotExist.tfplan: no such file or directory`
+	if !strings.Contains(got, want1) {
+		t.Errorf("unexpected output\ngot: %s\nwant:\n%s", got, want1)
+	}
+	if !strings.Contains(got, want2) {
+		t.Errorf("unexpected output\ngot: %s\nwant:\n%s", got, want2)
 	}
 }
 
@@ -368,7 +377,7 @@ func TestShow_planWithForceReplaceChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan := testPlan(t)
-	plan.Changes.SyncWrapper().AppendResourceInstanceChange(&plans.ResourceInstanceChangeSrc{
+	plan.Changes.AppendResourceInstanceChange(&plans.ResourceInstanceChangeSrc{
 		Addr: addrs.Resource{
 			Mode: addrs.ManagedResourceMode,
 			Type: "test_instance",
@@ -486,12 +495,15 @@ func TestShow_plan_json(t *testing.T) {
 
 func TestShow_state(t *testing.T) {
 	originalState := testState()
-	root := originalState.RootModule()
-	root.SetOutputValue("test", cty.ObjectVal(map[string]cty.Value{
-		"attr": cty.NullVal(cty.DynamicPseudoType),
-		"null": cty.NullVal(cty.String),
-		"list": cty.ListVal([]cty.Value{cty.NullVal(cty.Number)}),
-	}), false)
+	originalState.SetOutputValue(
+		addrs.OutputValue{Name: "test"}.Absolute(addrs.RootModuleInstance),
+		cty.ObjectVal(map[string]cty.Value{
+			"attr": cty.NullVal(cty.DynamicPseudoType),
+			"null": cty.NullVal(cty.String),
+			"list": cty.ListVal([]cty.Value{cty.NullVal(cty.Number)}),
+		}),
+		false,
+	)
 
 	statePath := testStateFile(t, originalState)
 	defer os.RemoveAll(filepath.Dir(statePath))
@@ -546,10 +558,12 @@ func TestShow_json_output(t *testing.T) {
 
 			// init
 			ui := new(cli.MockUi)
+			view, _ := testView(t)
 			ic := &InitCommand{
 				Meta: Meta{
 					testingOverrides: metaOverridesForProvider(p),
 					Ui:               ui,
+					View:             view,
 					ProviderSource:   providerSource,
 				},
 			}
@@ -654,10 +668,12 @@ func TestShow_json_output_sensitive(t *testing.T) {
 
 	// init
 	ui := new(cli.MockUi)
+	view, _ := testView(t)
 	ic := &InitCommand{
 		Meta: Meta{
 			testingOverrides: metaOverridesForProvider(p),
 			Ui:               ui,
+			View:             view,
 			ProviderSource:   providerSource,
 		},
 	}
@@ -747,10 +763,12 @@ func TestShow_json_output_conditions_refresh_only(t *testing.T) {
 
 	// init
 	ui := new(cli.MockUi)
+	view, _ := testView(t)
 	ic := &InitCommand{
 		Meta: Meta{
 			testingOverrides: metaOverridesForProvider(p),
 			Ui:               ui,
+			View:             view,
 			ProviderSource:   providerSource,
 		},
 	}
@@ -856,10 +874,12 @@ func TestShow_json_output_state(t *testing.T) {
 
 			// init
 			ui := new(cli.MockUi)
+			view, _ := testView(t)
 			ic := &InitCommand{
 				Meta: Meta{
 					testingOverrides: metaOverridesForProvider(p),
 					Ui:               ui,
+					View:             view,
 					ProviderSource:   providerSource,
 				},
 			}
@@ -1045,7 +1065,7 @@ func showFixtureSensitiveSchema() *providers.GetProviderSchemaResponse {
 // GetSchemaResponse, PlanResourceChangeFn, and ApplyResourceChangeFn populated,
 // with the plan/apply steps just passing through the data determined by
 // Terraform Core.
-func showFixtureProvider() *terraform.MockProvider {
+func showFixtureProvider() *testing_provider.MockProvider {
 	p := testProvider()
 	p.GetProviderSchemaResponse = showFixtureSchema()
 	p.ReadResourceFn = func(req providers.ReadResourceRequest) providers.ReadResourceResponse {
@@ -1108,7 +1128,7 @@ func showFixtureProvider() *terraform.MockProvider {
 // GetSchemaResponse, PlanResourceChangeFn, and ApplyResourceChangeFn populated,
 // with the plan/apply steps just passing through the data determined by
 // Terraform Core. It also has a sensitive attribute in the provider schema.
-func showFixtureSensitiveProvider() *terraform.MockProvider {
+func showFixtureSensitiveProvider() *testing_provider.MockProvider {
 	p := testProvider()
 	p.GetProviderSchemaResponse = showFixtureSensitiveSchema()
 	p.PlanResourceChangeFn = func(req providers.PlanResourceChangeRequest) providers.PlanResourceChangeResponse {
@@ -1159,7 +1179,7 @@ func showFixturePlanFile(t *testing.T, action plans.Action) string {
 		t.Fatal(err)
 	}
 	plan := testPlan(t)
-	plan.Changes.SyncWrapper().AppendResourceInstanceChange(&plans.ResourceInstanceChangeSrc{
+	plan.Changes.AppendResourceInstanceChange(&plans.ResourceInstanceChangeSrc{
 		Addr: addrs.Resource{
 			Mode: addrs.ManagedResourceMode,
 			Type: "test_instance",
@@ -1196,6 +1216,8 @@ type plan struct {
 	OutputChanges   map[string]interface{} `json:"output_changes,omitempty"`
 	PriorState      priorState             `json:"prior_state,omitempty"`
 	Config          map[string]interface{} `json:"configuration,omitempty"`
+	Applyable       bool                   `json:"applyable"`
+	Complete        bool                   `json:"complete"`
 	Errored         bool                   `json:"errored"`
 }
 
